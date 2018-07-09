@@ -25,7 +25,7 @@ APPLICATION_STATUS PollingAppOfflineApplication::QueryStatus()
         return APPLICATION_STATUS::RUNNING;
     }
 
-    return APPLICATION_STATUS::OFFLINE;
+    return APPLICATION_STATUS::RECYCLED;
 }
 
 bool

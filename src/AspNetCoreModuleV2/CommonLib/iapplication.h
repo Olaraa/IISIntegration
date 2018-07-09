@@ -11,7 +11,7 @@ enum APPLICATION_STATUS
     STARTING,
     RUNNING,
     SHUTDOWN,
-    OFFLINE,
+    RECYCLED,
     FAIL
 };
 

@@ -70,7 +70,7 @@ APPLICATION_INFO::EnsureApplicationCreated(
     STRU                struHostFxrDllLocation;
     STACK_STRU(struFileName, 300);  // >MAX_PATH
 
-    if (m_pApplication != nullptr && m_pApplication->QueryStatus() != OFFLINE)
+    if (m_pApplication != nullptr && m_pApplication->QueryStatus() != RECYCLED)
     {
         return S_OK;
     }
@@ -79,7 +79,7 @@ APPLICATION_INFO::EnsureApplicationCreated(
 
     if (m_pApplication != nullptr)
     {
-        if (m_pApplication->QueryStatus() == OFFLINE)
+        if (m_pApplication->QueryStatus() == RECYCLED)
         {
             LOG_INFO("Application went offline");
             // Application that went offline
