@@ -65,7 +65,7 @@ struct IAPPLICATION_DELETER
 };
 
 template< class APPLICATION >
-std::unique_ptr<APPLICATION, IAPPLICATION_DELETER> CreateReferencedApplication(APPLICATION* application)
+std::unique_ptr<APPLICATION, IAPPLICATION_DELETER> ReferenceApplication(APPLICATION* application)
 {
     application->ReferenceApplication();
     return std::unique_ptr<APPLICATION, IAPPLICATION_DELETER>(application);

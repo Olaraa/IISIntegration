@@ -73,7 +73,7 @@ public:
 
 private:
     REQUEST_NOTIFICATION_STATUS
-    ReturnServerShutdown() const;
+    ServerShutdownMessage() const;
 
     PVOID m_pManagedHttpContext;
     BOOL m_fManagedRequestComplete;

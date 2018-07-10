@@ -586,7 +586,7 @@ IN_PROCESS_APPLICATION::CreateHandler(
     HRESULT hr = S_OK;
     IREQUEST_HANDLER* pHandler = NULL;
 
-    pHandler = new IN_PROCESS_HANDLER(CreateReferencedApplication(this), pHttpContext, m_RequestHandler, m_RequestHandlerContext, m_AsyncCompletionHandler);
+    pHandler = new IN_PROCESS_HANDLER(::ReferenceApplication(this), pHttpContext, m_RequestHandler, m_RequestHandlerContext, m_AsyncCompletionHandler);
 
     if (pHandler == NULL)
     {

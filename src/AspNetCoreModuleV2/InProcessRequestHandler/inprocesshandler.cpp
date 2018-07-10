@@ -62,7 +62,7 @@ IN_PROCESS_HANDLER::OnExecuteRequestHandler()
     else if (m_pApplication->QueryStatus() != APPLICATION_STATUS::RUNNING || m_pApplication->
         QueryBlockCallbacksIntoManaged())
     {
-        return ReturnServerShutdown();
+        return ServerShutdownMessage();
     }
     
     return m_pRequestHandler(this, m_pRequestHandlerContext);
@@ -85,14 +85,14 @@ IN_PROCESS_HANDLER::OnAsyncCompletion(
         // this can potentially happen in ungraceful shutdown.
         // Or something really wrong happening with async completions
         // At this point, managed is in a shutting down state and we cannot send a request to it.
-        return ReturnServerShutdown();
+        return ServerShutdownMessage();
     }
 
     // Call the managed handler for async completion.
     return m_pAsyncCompletionHandler(m_pManagedHttpContext, hrCompletionStatus, cbCompletion);
 }
 
-REQUEST_NOTIFICATION_STATUS IN_PROCESS_HANDLER::ReturnServerShutdown() const
+REQUEST_NOTIFICATION_STATUS IN_PROCESS_HANDLER::ServerShutdownMessage() const
 {
     m_pW3Context->GetResponse()->SetStatus(503, "Server has been shutdown", 0,
                                            (ULONG)HRESULT_FROM_WIN32(ERROR_SHUTDOWN_IN_PROGRESS));
