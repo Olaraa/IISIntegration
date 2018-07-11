@@ -33,7 +33,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting
             switch (deploymentParameters.ServerType)
             {
                 case ServerType.IISExpress:
-                    return new IISExpressDeployer(deploymentParameters, loggerFactory);
+                    return new IIS.IISExpressDeployer(deploymentParameters, loggerFactory);
                 case ServerType.IIS:
                     return new IISDeployer(deploymentParameters, loggerFactory);
                 default:

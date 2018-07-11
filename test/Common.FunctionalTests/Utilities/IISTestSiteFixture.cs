@@ -36,15 +36,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
             _forwardingProvider = new ForwardingProvider();
             var loggerFactory = logging.CreateLoggerFactory(null, nameof(IISTestSiteFixture));
             loggerFactory.AddProvider(_forwardingProvider);
-            if (deploymentParameters.ServerType == ServerType.IIS)
-            {
-                // Currently hosting throws if the Servertype = IIS.
-                _deployer = new IISDeployer(deploymentParameters, loggerFactory);
-            }
-            else if (deploymentParameters.ServerType == ServerType.IISExpress)
-            {
-                _deployer = new IISExpressDeployer(deploymentParameters, loggerFactory);
-            }
+
+            _deployer = IISApplicationDeployerFactory.Create(deploymentParameters, loggerFactory);
 
             DeploymentResult = _deployer.DeployAsync().Result;
             Client = DeploymentResult.HttpClient;
