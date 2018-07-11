@@ -1,16 +1,14 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Linq;
+using Microsoft.AspNetCore.Server.IntegrationTesting.Common;
 using Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.AspNetCore.Server.IntegrationTesting
+namespace Microsoft.AspNetCore.Server.IntegrationTesting.IIS
 {
     /// <summary>
     /// Deployer for IIS.
@@ -67,7 +65,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting
 
                 Helpers.AddDebugLogToWebConfig(contentRoot, Path.Combine(contentRoot, $"{_application.WebSiteName}.txt"));
 
-                var uri = TestIISUriHelper.BuildTestUri(ServerType.IIS, DeploymentParameters.ApplicationBaseUriHint);
+                var uri = TestUriHelper.BuildTestUri(ServerType.IIS, DeploymentParameters.ApplicationBaseUriHint);
                 // To prevent modifying the IIS setup concurrently.
                 await _application.StartIIS(uri, contentRoot);
 
