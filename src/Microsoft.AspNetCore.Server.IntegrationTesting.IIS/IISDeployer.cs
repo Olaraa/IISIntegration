@@ -2,10 +2,11 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Microsoft.AspNetCore.Server.IntegrationTesting.Common;
-using Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Server.IntegrationTesting.IIS
@@ -55,7 +56,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting.IIS
 
                 _application = new IISApplication(DeploymentParameters, Logger);
 
-                // For now, only support using published output 
+                // For now, only support using published output
                 DeploymentParameters.PublishApplicationBeforeDeployment = true;
                 if (DeploymentParameters.PublishApplicationBeforeDeployment)
                 {
@@ -63,7 +64,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting.IIS
                     contentRoot = DeploymentParameters.PublishedApplicationRootPath;
                 }
 
-                Helpers.AddDebugLogToWebConfig(contentRoot, Path.Combine(contentRoot, $"{_application.WebSiteName}.txt"));
+                WebConfigHelpers.AddDebugLogToWebConfig(contentRoot, Path.Combine(contentRoot, $"{_application.WebSiteName}.txt"));
 
                 var uri = TestUriHelper.BuildTestUri(ServerType.IIS, DeploymentParameters.ApplicationBaseUriHint);
                 // To prevent modifying the IIS setup concurrently.
