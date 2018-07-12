@@ -252,7 +252,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting.IIS
             // Config is required. If not present then fall back to one we carry with us.
             if (string.IsNullOrEmpty(DeploymentParameters.ServerConfigTemplateContent))
             {
-                using (var stream = GetType().Assembly.GetManifestResourceStream("Microsoft.AspNetCore.Server.IntegrationTesting.Http.config"))
+                using (var stream = GetType().Assembly.GetManifestResourceStream("Microsoft.AspNetCore.Server.IntegrationTesting.IIS.Http.config"))
                 using (var reader = new StreamReader(stream))
                 {
                     DeploymentParameters.ServerConfigTemplateContent = reader.ReadToEnd();

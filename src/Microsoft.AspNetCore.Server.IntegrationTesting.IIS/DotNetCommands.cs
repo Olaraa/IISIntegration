@@ -9,7 +9,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting
 {
     // Copied from hosting
     // TODO: make public while removing IISExpressDeployer
-    internal static class DotNetCommands
+    public static class DotNetCommands
     {
         private const string _dotnetFolderName = ".dotnet";
 
@@ -50,7 +50,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting
             return dotnetDir;
         }
 
-        internal static string GetDotNetExecutable(RuntimeArchitecture arch)
+        public static string GetDotNetExecutable(RuntimeArchitecture arch)
         {
             var dotnetDir = GetDotNetInstallDir(arch);
 
