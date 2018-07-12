@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
@@ -14,9 +15,14 @@ using Xunit;
 
 namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 {
-    public class Helpers
+    public static class Helpers
     {
         public static TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
+
+        public static Task TimeoutAfterDefault(this Task task, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = -1)
+        {
+            return task.TimeoutAfter(DefaultTimeout, filePath, lineNumber);
+        }
 
         public static string GetTestWebSitePath(string name)
         {

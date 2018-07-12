@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -158,7 +159,8 @@ namespace Microsoft.AspNetCore.Server.IIS.Core
                     }
                 }
             }
-            catch (Exception ex)
+            // We want to swallow IO exception and allow app to finish writing
+            catch (Exception ex) when (!(ex is IOException))
             {
                 _bodyOutput.Reader.Complete(ex);
             }
