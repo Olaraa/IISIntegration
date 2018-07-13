@@ -17,7 +17,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 {
     public static class Helpers
     {
-        public static TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
+        public static TimeSpan DefaultTimeout = TimeSpan.FromSeconds(300);
 
         public static Task TimeoutAfterDefault(this Task task, [CallerFilePath] string filePath = null, [CallerLineNumber] int lineNumber = -1)
         {

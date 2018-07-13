@@ -2,7 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Testing.xunit;
@@ -14,7 +16,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 {
     [SkipIfHostableWebCoreNotAvailable]
     [OSSkipCondition(OperatingSystems.Windows, WindowsVersions.Win7, "https://github.com/aspnet/IISIntegration/issues/866")]
-    public class TestServerTest: LoggedTest
+    public class TestServerTest : LoggedTest
     {
         public TestServerTest(ITestOutputHelper output = null) : base(output)
         {
@@ -27,7 +29,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
             var expectedPath = "/Path";
 
             string path = null;
-            using (var testServer = await TestServer.Create(ctx => {
+            using (var testServer = await TestServer.Create(ctx =>
+            {
                 path = ctx.Request.Path.ToString();
                 return ctx.Response.WriteAsync(helloWorld);
             }, LoggerFactory))
@@ -39,29 +42,32 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         }
 
         [ConditionalFact]
-        [OSSkipCondition(OperatingSystems.Windows, WindowsVersions.Win7, "https://github.com/aspnet/IISIntegration/issues/866")]
         public async Task WritesSucceedAfterClientDisconnect()
         {
-            TaskCompletionSource<bool> requestStartedCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            TaskCompletionSource<bool> requestCompletedCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<bool> requestStartedCompletionSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<bool> requestCompletedCompletionSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             var data = new byte[1024];
-            using (var testServer = await TestServer.Create(async ctx => {
-                requestStartedCompletionSource.SetResult(true);
-
-                for (int i = 0; i < 1000; i++)
+            using (var testServer = await TestServer.Create(
+                async ctx =>
                 {
-                    await ctx.Response.Body.WriteAsync(data);
-                }
+                    requestStartedCompletionSource.SetResult(true);
 
-                requestCompletedCompletionSource.SetResult(true);
-            }, LoggerFactory))
+                    for (int i = 0; i < 1000; i++)
+                    {
+                        await ctx.Response.Body.WriteAsync(data);
+                    }
+
+                    requestCompletedCompletionSource.SetResult(true);
+                }, LoggerFactory))
             {
                 using (var connection = testServer.CreateConnection())
                 {
                     await connection.Send(
                         "POST / HTTP/1.1",
-                        $"Content-Length: {100000}",
+                        "Content-Length: 1",
                         "Host: localhost",
                         "Connection: close",
                         "",
@@ -75,7 +81,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         }
 
         [ConditionalFact]
-        [OSSkipCondition(OperatingSystems.Windows, WindowsVersions.Win7, "https://github.com/aspnet/IISIntegration/issues/866")]
         public async Task ReadThrowsAfterClientDisconnect()
         {
             TaskCompletionSource<bool> requestStartedCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -84,7 +89,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
             Exception exception = null;
 
             var data = new byte[1024];
-            using (var testServer = await TestServer.Create(async ctx => {
+            using (var testServer = await TestServer.Create(async ctx =>
+            {
                 requestStartedCompletionSource.SetResult(true);
                 try
                 {
@@ -102,7 +108,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
                 {
                     await connection.Send(
                         "POST / HTTP/1.1",
-                        $"Content-Length: {100000}",
+                        "Content-Length: 1",
                         "Host: localhost",
                         "Connection: close",
                         "",
@@ -116,6 +122,49 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
             Assert.IsType<IOException>(exception);
             Assert.Equal("Native IO operation failed", exception.Message);
+        }
+
+        [ConditionalFact]
+        public async Task ReaderThrowsCancelledException()
+        {
+            TaskCompletionSource<bool> requestStartedCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<bool> requestCompletedCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            Exception exception = null;
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+
+            var data = new byte[1024];
+            using (var testServer = await TestServer.Create(async ctx =>
+            {
+                requestStartedCompletionSource.SetResult(true);
+                try
+                {
+                    await ctx.Request.Body.ReadAsync(data, cancellationTokenSource.Token);
+                }
+                catch (Exception e)
+                {
+                    exception = e;
+                }
+
+                requestCompletedCompletionSource.SetResult(true);
+            }, LoggerFactory))
+            {
+                using (var connection = testServer.CreateConnection())
+                {
+                    await connection.Send(
+                        "POST / HTTP/1.1",
+                        "Content-Length: 1",
+                        "Host: localhost",
+                        "Connection: close",
+                        "",
+                        "");
+
+                    await requestStartedCompletionSource.Task.TimeoutAfterDefault();
+                    cancellationTokenSource.Cancel();
+                    await requestCompletedCompletionSource.Task.TimeoutAfterDefault();
+                }
+                Assert.IsType<OperationCanceledException>(exception);
+            }
         }
     }
 }

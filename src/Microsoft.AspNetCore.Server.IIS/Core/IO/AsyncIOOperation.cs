@@ -103,7 +103,7 @@ namespace Microsoft.AspNetCore.Server.IIS.Core.IO
                 _result = bytes;
                 if (hr != NativeMethods.HR_OK)
                 {
-                    _exception = hr != NativeMethods.COR_E_IO ? new IOException("Native IO operation failed") : Marshal.GetExceptionForHR(hr);
+                    _exception = new IOException("Native IO operation failed", Marshal.GetExceptionForHR(hr));
                 }
             }
             else

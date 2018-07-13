@@ -6,8 +6,11 @@ using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using System.Xml.XPath;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +27,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         private const string HWebCoreDll = "hwebcore.dll";
 
         internal static string HostableWebCoreLocation => Environment.ExpandEnvironmentVariables($@"%windir%\system32\inetsrv\{HWebCoreDll}");
+        internal static string BasePath => Path.GetDirectoryName(new Uri(typeof(TestServer).Assembly.CodeBase).AbsolutePath);
+        internal static string InProcessHandlerLocation => Path.Combine(BasePath, InProcessHandlerDll);
+
+        internal static string AspNetCoreModuleLocation => Path.Combine(BasePath, AspNetCoreModuleDll);
 
         private static readonly SemaphoreSlim WebCoreLock = new SemaphoreSlim(1, 1);
 
@@ -41,8 +48,20 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
         private IWebHost _host;
 
+        private IntPtr _inprocDll;
+
+        private string _appHostConfigPath;
+
+        private ILogger<TestServer> _logger;
+
+        private hostfxr_main_fn _hostfxrMainFn;
+
+        private IntPtr _ancmDll;
+
         private TestServer(Action<IApplicationBuilder> appBuilder, ILoggerFactory loggerFactory)
         {
+            _hostfxrMainFn = Main;
+            _logger = loggerFactory.CreateLogger<TestServer>();
             _appBuilder = appBuilder;
             _loggerFactory = loggerFactory;
 
@@ -57,7 +76,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
             await WebCoreLock.WaitAsync();
             var server = new TestServer(appBuilder, loggerFactory);
             server.Start();
-            await server.HttpClient.GetAsync("/start");
+            (await server.HttpClient.GetAsync("/start")).EnsureSuccessStatusCode();
             await server._startedTaskCompletionSource.Task;
             return server;
         }
@@ -69,12 +88,19 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
         private void Start()
         {
+            _ancmDll = LoadLibrary(AspNetCoreModuleLocation);
+            _inprocDll = LoadLibrary(InProcessHandlerLocation);
             LoadLibrary(HostableWebCoreLocation);
-            LoadLibrary(InProcessHandlerDll);
-            LoadLibrary(AspNetCoreModuleDll);
+            _appHostConfigPath = Path.GetTempFileName();
 
-            set_main_handler(Main);
-            var startResult = WebCoreActivate(Path.GetFullPath("HostableWebCore.config"), null, "Instance");
+            var webHostConfig = XDocument.Load(Path.GetFullPath("HostableWebCore.config"));
+            webHostConfig.XPathSelectElement("/configuration/system.webServer/globalModules/add[@name='AspNetCoreModuleV2']")
+                .SetAttributeValue("image", AspNetCoreModuleLocation);
+
+            webHostConfig.Save(_appHostConfigPath);
+
+            set_main_handler(_hostfxrMainFn);
+            var startResult = WebCoreActivate(_appHostConfigPath, null, "Instance");
             if (startResult != 0)
             {
                 throw new InvalidOperationException($"Error while running WebCoreActivate: {startResult}");
@@ -107,6 +133,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         {
             HttpClient.Dispose();
             WebCoreShutdown(false);
+
+            if (!FreeLibrary(_inprocDll))
+            {
+                var error = Marshal.GetLastWin32Error();
+            }
+            if (!FreeLibrary(_ancmDll))
+            {
+                var error = Marshal.GetLastWin32Error();
+            }
             WebCoreLock.Release();
         }
 
@@ -140,5 +175,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
         [DllImport("kernel32", SetLastError=true, CharSet = CharSet.Ansi)]
         private static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpFileName);
+
+        [DllImport("kernel32", SetLastError=true, CharSet = CharSet.Ansi)]
+        private static extern bool FreeLibrary(IntPtr hModule);
     }
 }

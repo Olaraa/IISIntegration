@@ -26,7 +26,7 @@ namespace Microsoft.AspNetCore.Server.IIS.Core
 
             while (true)
             {
-                var result = await _bodyInputPipe.Reader.ReadAsync();
+                var result = await _bodyInputPipe.Reader.ReadAsync(cancellationToken);
                 var readableBuffer = result.Buffer;
                 try
                 {
