@@ -124,7 +124,7 @@ Win32 error
     DWORD                dwErrorStatus;
     ULONG_PTR            completionKey;
 
-    LOG_INFO("Starting file watched thread");
+    LOG_INFO("Starting file watcher thread");
     pFileMonitor = (FILE_WATCHER*)pvArg;
     DBG_ASSERT(pFileMonitor != NULL);
 
@@ -159,7 +159,7 @@ Win32 error
 
     pFileMonitor->m_fThreadExit = TRUE;
     
-    LOG_INFO("Stopping file watched thread");
+    LOG_INFO("Stopping file watcher thread");
     ExitThread(0);
 }
 
