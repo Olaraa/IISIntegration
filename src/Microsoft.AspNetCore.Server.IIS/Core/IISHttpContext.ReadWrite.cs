@@ -160,9 +160,12 @@ namespace Microsoft.AspNetCore.Server.IIS.Core
                 }
             }
             // We want to swallow IO exception and allow app to finish writing
-            catch (Exception ex) when (!(ex is IOException))
+            catch (Exception ex)
             {
-                _bodyOutput.Reader.Complete(ex);
+                if (!(ex is IOException))
+                {
+                    _bodyOutput.Reader.Complete(ex);
+                }
             }
             finally
             {

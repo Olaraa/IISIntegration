@@ -42,26 +42,18 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
         private readonly Action<IApplicationBuilder> _appBuilder;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly hostfxr_main_fn _hostfxrMainFn;
 
         public HttpClient HttpClient { get; }
         public TestConnection CreateConnection() => new TestConnection(BasePort);
 
         private IWebHost _host;
 
-        private IntPtr _inprocDll;
-
         private string _appHostConfigPath;
-
-        private ILogger<TestServer> _logger;
-
-        private hostfxr_main_fn _hostfxrMainFn;
-
-        private IntPtr _ancmDll;
 
         private TestServer(Action<IApplicationBuilder> appBuilder, ILoggerFactory loggerFactory)
         {
             _hostfxrMainFn = Main;
-            _logger = loggerFactory.CreateLogger<TestServer>();
             _appBuilder = appBuilder;
             _loggerFactory = loggerFactory;
 
@@ -88,18 +80,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
         private void Start()
         {
-            _ancmDll = LoadLibrary(AspNetCoreModuleLocation);
-            _inprocDll = LoadLibrary(InProcessHandlerLocation);
             LoadLibrary(HostableWebCoreLocation);
             _appHostConfigPath = Path.GetTempFileName();
 
             var webHostConfig = XDocument.Load(Path.GetFullPath("HostableWebCore.config"));
             webHostConfig.XPathSelectElement("/configuration/system.webServer/globalModules/add[@name='AspNetCoreModuleV2']")
                 .SetAttributeValue("image", AspNetCoreModuleLocation);
-
             webHostConfig.Save(_appHostConfigPath);
 
             set_main_handler(_hostfxrMainFn);
+
             var startResult = WebCoreActivate(_appHostConfigPath, null, "Instance");
             if (startResult != 0)
             {
@@ -113,8 +103,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
                 .UseIIS()
                 .ConfigureServices(services => {
                         services.AddSingleton<IStartup>(this);
-                        services.AddSingleton<ILoggerFactory>(_loggerFactory);
-                    })
+                        services.AddSingleton(_loggerFactory);
+                })
                 .UseSetting(WebHostDefaults.ApplicationKey, typeof(TestServer).GetTypeInfo().Assembly.FullName)
                 .Build();
 
@@ -133,15 +123,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         {
             HttpClient.Dispose();
             WebCoreShutdown(false);
-
-            if (!FreeLibrary(_inprocDll))
-            {
-                var error = Marshal.GetLastWin32Error();
-            }
-            if (!FreeLibrary(_ancmDll))
-            {
-                var error = Marshal.GetLastWin32Error();
-            }
             WebCoreLock.Release();
         }
 
@@ -175,8 +156,5 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
 
         [DllImport("kernel32", SetLastError=true, CharSet = CharSet.Ansi)]
         private static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpFileName);
-
-        [DllImport("kernel32", SetLastError=true, CharSet = CharSet.Ansi)]
-        private static extern bool FreeLibrary(IntPtr hModule);
     }
 }
