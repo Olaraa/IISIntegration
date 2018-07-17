@@ -32,12 +32,7 @@ public:
 
     __override
     VOID
-    ShutDown()
-    override;
-
-    __override
-    VOID
-    Recycle()
+    Stop()
     override;
 
     __override

@@ -50,7 +50,7 @@ IN_PROCESS_APPLICATION::~IN_PROCESS_APPLICATION()
 }
 
 //static
-DWORD
+DWORD WINAPI
 IN_PROCESS_APPLICATION::DoShutDown(
     LPVOID lpParam
 )
@@ -63,7 +63,7 @@ IN_PROCESS_APPLICATION::DoShutDown(
 
 __override
 VOID
-IN_PROCESS_APPLICATION::ShutDown(
+IN_PROCESS_APPLICATION::Stop(
     VOID
 )
 {
@@ -118,15 +118,8 @@ Finished:
             ASPNETCORE_EVENT_GRACEFUL_SHUTDOWN_FAILURE,
             ASPNETCORE_EVENT_APP_SHUTDOWN_FAILURE_MSG,
             m_pConfig->QueryConfigPath()->QueryStr());
-
-        //
-        // Managed layer may block the shutdown and lead to shutdown timeout
-        // Assumption: only one inprocess application is hosted.
-        // Call process exit to force shutdown
-        //
-        exit(hr);
     }
-    else
+	else
     {
         UTILITY::LogEventF(g_hEventLog,
             EVENTLOG_INFORMATION_TYPE,
@@ -134,6 +127,8 @@ Finished:
             ASPNETCORE_EVENT_APP_SHUTDOWN_SUCCESSFUL_MSG,
             m_pConfig->QueryConfigPath()->QueryStr());
     }
+
+    InProcessApplicationBase::Stop();
 }
 
 VOID
@@ -515,7 +510,7 @@ Finished:
             //
             // If the inprocess server was initialized, we need to cause recycle to be called on the worker process.
             //
-            Recycle();
+            Stop();
         }
     }
 

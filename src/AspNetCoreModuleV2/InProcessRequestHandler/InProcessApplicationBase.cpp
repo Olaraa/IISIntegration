@@ -18,7 +18,7 @@ InProcessApplicationBase::InProcessApplicationBase(
 }
 
 VOID
-InProcessApplicationBase::Recycle(
+InProcessApplicationBase::Stop(
     VOID
 )
 {

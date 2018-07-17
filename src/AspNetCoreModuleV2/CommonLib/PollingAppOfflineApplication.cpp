@@ -100,11 +100,7 @@ std::experimental::filesystem::path PollingAppOfflineApplication::GetAppOfflineL
     return std::experimental::filesystem::path(pApplication.GetApplicationPhysicalPath()) / "app_offline.htm";
 }
 
-void PollingAppOfflineApplication::ShutDown()
-{
-}
-
-void PollingAppOfflineApplication::Recycle()
+void PollingAppOfflineApplication::Stop()
 {
 }
 

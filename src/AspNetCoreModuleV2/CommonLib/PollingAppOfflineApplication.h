@@ -24,8 +24,7 @@ public:
     bool AppOfflineExists();
     HRESULT LoadAppOfflineContent();
     static bool ShouldBeStarted(IHttpApplication& pApplication);
-    void ShutDown() override;
-    void Recycle() override;
+    void Stop() override;
 
 private:
     static const int c_appOfflineRefreshIntervalMS = 200;

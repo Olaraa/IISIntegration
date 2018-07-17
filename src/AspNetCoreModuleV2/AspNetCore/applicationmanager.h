@@ -87,6 +87,7 @@ public:
 
     static HRESULT StaticInitialize(IHttpServer& pHttpServer)
     {
+        LOG_INFO("Initializing manger");
         assert(!sm_pApplicationManager);
         sm_pApplicationManager = new APPLICATION_MANAGER(pHttpServer);
         RETURN_IF_FAILED(sm_pApplicationManager->Initialize());

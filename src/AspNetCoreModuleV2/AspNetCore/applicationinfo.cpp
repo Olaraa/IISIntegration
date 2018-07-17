@@ -14,6 +14,7 @@
 #include "exceptions.h"
 #include "PollingAppOfflineApplication.h"
 #include "EventLog.h"
+#include "HandleWrapper.h"
 
 extern HINSTANCE    g_hModule;
 
@@ -29,21 +30,7 @@ PFN_ASPNETCORE_CREATE_APPLICATION APPLICATION_INFO::s_pfnAspNetCoreCreateApplica
 
 APPLICATION_INFO::~APPLICATION_INFO()
 {
-    if (m_pApplication != NULL)
-    {
-        // shutdown the application
-        m_pApplication->ShutDown();
-        m_pApplication->DereferenceApplication();
-        m_pApplication = NULL;
-    }
-
-    // configuration should be dereferenced after application shutdown
-    // since the former will use it during shutdown
-    if (m_pConfiguration != NULL)
-    {
-        delete m_pConfiguration;
-        m_pConfiguration = NULL;
-    }
+    ShutDownApplication();
 }
 
 HRESULT
@@ -51,7 +38,7 @@ APPLICATION_INFO::Initialize(
     _In_ IHttpApplication         &pApplication
 )
 {
-    m_pConfiguration = new ASPNETCORE_SHIM_CONFIG();
+    m_pConfiguration.reset(new ASPNETCORE_SHIM_CONFIG());
     RETURN_IF_FAILED(m_pConfiguration->Populate(&m_pServer, &pApplication));
     RETURN_IF_FAILED(m_struInfoKey.Copy(pApplication.GetApplicationId()));
 
@@ -60,22 +47,16 @@ APPLICATION_INFO::Initialize(
 
 
 HRESULT
-APPLICATION_INFO::EnsureApplicationCreated(
-    IHttpContext *pHttpContext
+APPLICATION_INFO::ExtractApplication(
+    IHttpContext *pHttpContext,
+    std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER>& pApplication
 )
 {
     HRESULT             hr = S_OK;
-    IAPPLICATION       *pApplication = NULL;
-    STRU                struExeLocation;
-    STRU                struHostFxrDllLocation;
-    STACK_STRU(struFileName, 300);  // >MAX_PATH
+    
+    SRWExclusiveLock lock(m_applicationLock);
 
-    if (m_pApplication != nullptr && m_pApplication->QueryStatus() != RECYCLED)
-    {
-        return S_OK;
-    }
-
-    SRWExclusiveLock lock(m_srwLock);
+    auto& httpApplication = *pHttpContext->GetApplication();
 
     if (m_pApplication != nullptr)
     {
@@ -84,7 +65,6 @@ APPLICATION_INFO::EnsureApplicationCreated(
             LOG_INFO("Application went offline");
             // Application that went offline
             // are supposed to recycle themselves
-            m_pApplication->DereferenceApplication();
             m_pApplication = nullptr;
         }
         else
@@ -99,11 +79,10 @@ APPLICATION_INFO::EnsureApplicationCreated(
         FINISHED(E_APPLICATION_ACTIVATION_EXEC_FAILURE);
     }
 
-    auto& httpApplication = *pHttpContext->GetApplication();
     if (PollingAppOfflineApplication::ShouldBeStarted(httpApplication))
     {
         LOG_INFO("Detected app_ofline file, creating polling application");
-        m_pApplication = new PollingAppOfflineApplication(httpApplication);
+        m_pApplication.reset(new PollingAppOfflineApplication(httpApplication));
     }
     else
     {
@@ -113,6 +92,8 @@ APPLICATION_INFO::EnsureApplicationCreated(
         // there is a period where we could call
 
         m_fAppCreationAttempted = TRUE;
+
+        STRU struExeLocation;
         FINISHED_IF_FAILED(FindRequestHandlerAssembly(struExeLocation));
 
         if (m_pfnAspNetCoreCreateApplication == NULL)
@@ -123,18 +104,25 @@ APPLICATION_INFO::EnsureApplicationCreated(
         std::array<APPLICATION_PARAMETER, 1> parameters {
             {"InProcessExeLocation", struExeLocation.QueryStr()}
         };
+
         LOG_INFO("Creating handler application");
+        IAPPLICATION * newApplication;
         FINISHED_IF_FAILED(m_pfnAspNetCoreCreateApplication(
             &m_pServer,
-            pHttpContext->GetApplication(),
+            &httpApplication,
             parameters.data(),
             static_cast<DWORD>(parameters.size()),
-            &pApplication));
+            &newApplication));
 
-        m_pApplication = pApplication;
+        m_pApplication.reset(newApplication);
     }
 
+
 Finished:
+    if (m_pApplication)
+    {
+        pApplication = ReferenceApplication(m_pApplication.get());   
+    }
 
     if (FAILED(hr))
     {
@@ -143,7 +131,7 @@ Finished:
             EVENTLOG_ERROR_TYPE,
             ASPNETCORE_EVENT_ADD_APPLICATION_ERROR,
             ASPNETCORE_EVENT_ADD_APPLICATION_ERROR_MSG,
-            pHttpContext->GetApplication()->GetApplicationId(),
+            httpApplication.GetApplicationId(),
             hr);
     }
 
@@ -413,107 +401,48 @@ Finished:
 VOID
 APPLICATION_INFO::RecycleApplication()
 {
-    IAPPLICATION* pApplication;
-    HANDLE       hThread = INVALID_HANDLE_VALUE;
+    SRWExclusiveLock lock(m_applicationLock);
 
-    if (m_pApplication != NULL)
+    if (m_pApplication)
     {
-        SRWExclusiveLock lock(m_srwLock);
+        const auto pApplication = m_pApplication.release();
 
-        if (m_pApplication != NULL)
-        {
-            pApplication = m_pApplication;
-            if (m_pConfiguration->QueryHostingModel() == HOSTING_OUT_PROCESS)
-            {
-                //
-                // For inprocess, need to set m_pApplication to NULL first to
-                // avoid mapping new request to the recycled application.
-                // Outofprocess application instance will be created for new request
-                // For inprocess, as recycle will lead to shutdown later, leave m_pApplication
-                // to not block incoming requests till worker process shutdown
-                //
-                m_pApplication = NULL;
-            }
-            else
-            {
-                //
-                // For inprocess, need hold the application till shutdown is called
-                // Bump the reference counter as DoRecycleApplication will do dereference
-                //
-                pApplication->ReferenceApplication();
-            }
-
-            hThread = CreateThread(
-                NULL,       // default security attributes
-                0,          // default stack size
-                (LPTHREAD_START_ROUTINE)DoRecycleApplication,
-                pApplication,       // thread function arguments
-                0,          // default creation flags
-                NULL);      // receive thread identifier
-        }
-        else
-        {
-            if (m_pConfiguration->QueryHostingModel() == HOSTING_IN_PROCESS)
-            {
-                // In process application failed to start for whatever reason, need to recycle the work process
-                m_pServer.RecycleProcess(L"AspNetCore InProcess Recycle Process on Demand");
-            }
-        }
-
-        if (hThread == NULL)
-        {
-            if (!g_fRecycleProcessCalled)
-            {
-                g_fRecycleProcessCalled = TRUE;
-                m_pServer.RecycleProcess(L"On Demand by AspNetCore Module for recycle application failure");
-            }
-        }
-        else
-        {
-            // Closing a thread handle does not terminate the associated thread or remove the thread object.
-            CloseHandle(hThread);
-        }
+        HandleWrapper<InvalidHandleTraits> hThread = CreateThread(
+            NULL,       // default security attributes
+            0,          // default stack size
+            (LPTHREAD_START_ROUTINE)DoRecycleApplication,
+            pApplication,       // thread function arguments
+            0,          // default creation flags
+            NULL);      // receive thread identifier
     }
 }
 
 
-VOID
+DWORD WINAPI 
 APPLICATION_INFO::DoRecycleApplication(
     LPVOID lpParam)
 {
-    IAPPLICATION* pApplication = static_cast<IAPPLICATION*>(lpParam);
+    auto pApplication = std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER>(static_cast<IAPPLICATION*>(lpParam));
 
-    // No lock required
-
-    if (pApplication != NULL)
+    if (pApplication)
     {
         // Recycle will call shutdown for out of process
-        pApplication->Recycle();
-
-        // Decrement the ref count as we reference it in RecycleApplication.
-        pApplication->DereferenceApplication();
+        pApplication->Stop();
     }
+
+    return 0;
 }
 
 
 VOID
 APPLICATION_INFO::ShutDownApplication()
 {
-    IAPPLICATION* pApplication = NULL;
+    SRWExclusiveLock lock(m_applicationLock);
 
-    // pApplication can be NULL due to app_offline
-    if (m_pApplication != NULL)
+    if (m_pApplication)
     {
-        SRWExclusiveLock lock(m_srwLock);
-
-        if (m_pApplication != NULL)
-        {
-            pApplication = m_pApplication;
-
-            // Set m_pApplication to NULL first to prevent anyone from using it
-            m_pApplication = NULL;
-            pApplication->ShutDown();
-            pApplication->DereferenceApplication();
-        }
+        m_fShutdown = true;
+        m_pApplication ->Stop();
+        m_pApplication = nullptr;
     }
 }

@@ -18,7 +18,7 @@ public:
 
     ~InProcessApplicationBase() = default;
 
-    VOID Recycle(VOID) override;
+    VOID Stop(VOID) override;
 
 protected:
     BOOL m_fRecycleCalled;
