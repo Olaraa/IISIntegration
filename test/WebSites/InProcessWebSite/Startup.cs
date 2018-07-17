@@ -753,5 +753,11 @@ namespace IISTestSite
             }
             await context.Response.WriteAsync("Response End");
         }
+
+        private async Task GetIsConsoleRedirected(HttpContext context)
+        {
+            await context.Response.WriteAsync($"{Console.IsOutputRedirected}");
+            await context.Response.WriteAsync($"{Console.IsErrorRedirected}");
+        }
     }
 }

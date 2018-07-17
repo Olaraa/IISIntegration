@@ -226,7 +226,6 @@ IN_PROCESS_APPLICATION::SetCallbackHandles(
     m_ShutdownHandlerContext = pvShutdownHandlerContext;
     m_AsyncCompletionHandler = async_completion_handler;
 
-    m_pLoggerProvider->NotifyStartupComplete();
     // Can't check the std err handle as it isn't a critical error
     // Initialization complete
     UTILITY::LogEventF(g_hEventLog,
@@ -507,8 +506,6 @@ Finished:
 
     if (!m_fShutdownCalledFromNative)
     {
-        m_pLoggerProvider->NotifyStartupComplete();
-
         LogErrorsOnMainExit(hr);
         if (m_fInitialized)
         {

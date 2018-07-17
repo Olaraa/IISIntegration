@@ -24,6 +24,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
             // However, for IIS, we need a web.config file because the default on generated on publish
             // doesn't include V2. We can remove the publish flag once IIS supports non-publish running
             var deploymentParameters = Helpers.GetBaseDeploymentParameters("StartupExceptionWebsite", publish: true);
+            deploymentParameters.GracefulShutdown = true;
 
             var randomNumberString = new Random(Guid.NewGuid().GetHashCode()).Next(10000000).ToString();
             deploymentParameters.WebConfigBasedEnvironmentVariables["ASPNETCORE_INPROCESS_STARTUP_VALUE"] = path;
@@ -48,6 +49,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         public async Task CheckStdoutWithLargeWrites(string path)
         {
             var deploymentParameters = Helpers.GetBaseDeploymentParameters("StartupExceptionWebsite", publish: true);
+            deploymentParameters.GracefulShutdown = true;
             deploymentParameters.WebConfigBasedEnvironmentVariables["ASPNETCORE_INPROCESS_STARTUP_VALUE"] = path;
 
             var deploymentResult = await DeployAsync(deploymentParameters);

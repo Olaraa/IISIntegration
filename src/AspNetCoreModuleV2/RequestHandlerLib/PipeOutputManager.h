@@ -13,21 +13,17 @@ public:
     PipeOutputManager();
     ~PipeOutputManager();
 
-    // Inherited via ILoggerProvider
     virtual HRESULT Start() override;
-    virtual void NotifyStartupComplete() override;
 
-    // Inherited via IOutputManager
     virtual bool GetStdOutContent(STRA* struStdOutput) override;
 
+    // Thread functions
     VOID ReadStdErrHandleInternal(VOID);
 
     static
     VOID ReadStdErrHandle(LPVOID pContext);
 
 private:
-    VOID StopOutputRedirection();
-
     HANDLE                          m_hErrReadPipe;
     HANDLE                          m_hErrWritePipe;
     STRU                            m_struLogFilePath;

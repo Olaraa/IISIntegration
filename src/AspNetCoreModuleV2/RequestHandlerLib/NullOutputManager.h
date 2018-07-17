@@ -19,10 +19,6 @@ public:
         return S_OK;
     }
 
-    void NotifyStartupComplete()
-    {
-    }
-
     bool GetStdOutContent(STRA*)
     {
         return false;

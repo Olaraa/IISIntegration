@@ -104,6 +104,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         public async Task CheckStdoutLoggingToPipe_DoesNotCrashProcess(string path)
         {
             var deploymentParameters = Helpers.GetBaseDeploymentParameters(publish: true);
+            deploymentParameters.GracefulShutdown = true;
             var deploymentResult = await DeployAsync(deploymentParameters);
 
             await Helpers.AssertStarts(deploymentResult, path);
@@ -122,6 +123,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         public async Task CheckStdoutLoggingToPipeWithFirstWrite(string path)
         {
             var deploymentParameters = Helpers.GetBaseDeploymentParameters(publish: true);
+            deploymentParameters.GracefulShutdown = true;
+
             var firstWriteString = path + path;
 
             deploymentParameters.WebConfigBasedEnvironmentVariables["ASPNETCORE_INPROCESS_INITIAL_WRITE"] = firstWriteString;

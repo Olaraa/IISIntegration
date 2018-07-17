@@ -23,12 +23,6 @@ PipeOutputManager::PipeOutputManager() :
 
 PipeOutputManager::~PipeOutputManager()
 {
-    StopOutputRedirection();
-}
-
-VOID
-PipeOutputManager::StopOutputRedirection()
-{
     DWORD    dwThreadStatus = 0;
     STRA     straStdOutput;
 
@@ -194,13 +188,19 @@ PipeOutputManager::ReadStdErrHandleInternal(
         }
         else if (GetLastError() == ERROR_BROKEN_PIPE)
         {
-            break;
+            return;
         }
     }
-}
 
-VOID
-PipeOutputManager::NotifyStartupComplete()
-{
-    StopOutputRedirection();
+    char tempBuffer[MAX_PIPE_READ_SIZE];
+    while (true)
+    {
+        if (ReadFile(m_hErrReadPipe, tempBuffer, MAX_PIPE_READ_SIZE, &dwNumBytesRead, NULL))
+        {
+        }
+        else if (GetLastError() == ERROR_BROKEN_PIPE)
+        {
+            return;
+        }
+    }
 }
