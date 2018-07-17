@@ -12,9 +12,10 @@
 #include "SRWExclusiveLock.h"
 #include "GlobalVersionUtility.h"
 #include "exceptions.h"
-#include "PollingAppOfflineApplication.h"
 #include "EventLog.h"
 #include "HandleWrapper.h"
+#include "ServerErrorApplication.h"
+#include "AppOfflineApplication.h"
 
 extern HINSTANCE    g_hModule;
 
@@ -73,26 +74,14 @@ APPLICATION_INFO::ExtractApplication(
             FINISHED(S_OK);   
         }
     }
-    else if (m_fAppCreationAttempted)
-    {
-        // previous CreateApplication failed
-        FINISHED(E_APPLICATION_ACTIVATION_EXEC_FAILURE);
-    }
 
-    if (PollingAppOfflineApplication::ShouldBeStarted(httpApplication))
+    if (AppOfflineApplication::ShouldBeStarted(httpApplication))
     {
         LOG_INFO("Detected app_ofline file, creating polling application");
-        m_pApplication.reset(new PollingAppOfflineApplication(httpApplication));
+        m_pApplication.reset(new AppOfflineApplication(httpApplication));
     }
     else
     {
-        // Move the request handler check inside of the lock
-        // such that only one request finds and loads it.
-        // FindRequestHandlerAssembly obtains a global lock, but after releasing the lock,
-        // there is a period where we could call
-
-        m_fAppCreationAttempted = TRUE;
-
         STRU struExeLocation;
         FINISHED_IF_FAILED(FindRequestHandlerAssembly(struExeLocation));
 
@@ -119,10 +108,6 @@ APPLICATION_INFO::ExtractApplication(
 
 
 Finished:
-    if (m_pApplication)
-    {
-        pApplication = ReferenceApplication(m_pApplication.get());   
-    }
 
     if (FAILED(hr))
     {
@@ -133,6 +118,13 @@ Finished:
             ASPNETCORE_EVENT_ADD_APPLICATION_ERROR_MSG,
             httpApplication.GetApplicationId(),
             hr);
+
+        m_pApplication.reset(new ServerErrorApplication(httpApplication, hr));
+    }
+
+    if (m_pApplication)
+    {
+        pApplication = ReferenceApplication(m_pApplication.get());   
     }
 
     return hr;
@@ -441,7 +433,6 @@ APPLICATION_INFO::ShutDownApplication()
 
     if (m_pApplication)
     {
-        m_fShutdown = true;
         m_pApplication ->Stop();
         m_pApplication = nullptr;
     }

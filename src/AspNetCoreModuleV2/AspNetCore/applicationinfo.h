@@ -32,7 +32,6 @@ public:
         m_pServer(pServer),
         m_cRefs(1),
         m_fValid(FALSE),
-        m_fAppCreationAttempted(FALSE),
         m_pConfiguration(nullptr),
         m_pfnAspNetCoreCreateApplication(NULL)
     {
@@ -115,11 +114,9 @@ private:
     mutable LONG            m_cRefs;
     STRU                    m_struInfoKey;
     BOOL                    m_fValid;
-    BOOL                    m_fAppCreationAttempted;
     SRWLOCK                 m_applicationLock;
     IHttpServer            &m_pServer;
     PFN_ASPNETCORE_CREATE_APPLICATION      m_pfnAspNetCoreCreateApplication;
-    bool                    m_fShutdown;
     
     std::unique_ptr<ASPNETCORE_SHIM_CONFIG> m_pConfiguration;
     std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER> m_pApplication;

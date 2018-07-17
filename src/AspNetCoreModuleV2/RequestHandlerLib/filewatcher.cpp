@@ -354,22 +354,29 @@ FILE_WATCHER_ENTRY::Monitor(VOID)
 {
     HRESULT hr = S_OK;
     DWORD   cbRead;
-
     AcquireSRWLockExclusive(&_srwLock);
     ReferenceFileWatcherEntry();
     ZeroMemory(&_overlapped, sizeof(_overlapped));
 
-    if (!ReadDirectoryChangesW(_hDirectory,
-        _buffDirectoryChanges.QueryPtr(),
-        _buffDirectoryChanges.QuerySize(),
-        FALSE,        // Watching sub dirs. Set to False now as only monitoring app_offline
-        FILE_NOTIFY_VALID_MASK & ~FILE_NOTIFY_CHANGE_LAST_ACCESS,
-        &cbRead,
-        &_overlapped,
-        NULL))
+    // Check if file exist before polling for changes
+    if (GetFileAttributes(_strFullName.QueryStr()) != INVALID_FILE_ATTRIBUTES)
     {
-        hr = HRESULT_FROM_WIN32(GetLastError());
-        DereferenceFileWatcherEntry();
+        PostQueuedCompletionStatus(_pFileMonitor->QueryCompletionPort(), 0, 0, &_overlapped);
+    }
+    else
+    {
+        if (!ReadDirectoryChangesW(_hDirectory,
+            _buffDirectoryChanges.QueryPtr(),
+            _buffDirectoryChanges.QuerySize(),
+            FALSE,        // Watching sub dirs. Set to False now as only monitoring app_offline
+            FILE_NOTIFY_VALID_MASK & ~FILE_NOTIFY_CHANGE_LAST_ACCESS,
+            &cbRead,
+            &_overlapped,
+            NULL))
+        {
+            hr = HRESULT_FROM_WIN32(GetLastError());
+            DereferenceFileWatcherEntry();
+        }
     }
 
     ReleaseSRWLockExclusive(&_srwLock);
@@ -427,6 +434,12 @@ FILE_WATCHER_ENTRY::Create(
     }
 
     if (FAILED(hr = _strDirectoryName.Copy(pszDirectoryToMonitor)))
+    {
+        goto Finished;
+    }
+
+    if (FAILED(hr = _strFullName.Append(_strDirectoryName)) ||
+        FAILED(hr = _strFullName.Append(_strFileName)))
     {
         goto Finished;
     }

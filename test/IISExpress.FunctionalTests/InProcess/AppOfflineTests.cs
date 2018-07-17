@@ -5,11 +5,13 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.IIS.FunctionalTests.Utilities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
+using Microsoft.AspNetCore.Testing;
 using Microsoft.AspNetCore.Testing.xunit;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -30,19 +32,96 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             AddAppOffline(deploymentResult.ContentRoot);
 
             await AssertAppOffline(deploymentResult);
+            AssertFilesNotLocked(deploymentResult);
         }
 
-        [ConditionalTheory]
-        [InlineData(HostingModel.InProcess)]
-        [InlineData(HostingModel.OutOfProcess)]
-        public async Task AppOfflineDroppedWhileSiteIsDown_CustomResponse(HostingModel hostingModel)
+        [ConditionalFact]
+        public async Task AppOfflineDroppedWhileSiteFailedToStartInShim_AppOfflineServed_InProcess()
         {
-            var expectedResponse = "The app is offline.";
-            var deploymentResult = await DeployApp(hostingModel);
+            var deploymentResult = await DeployApp(HostingModel.InProcess);
 
-            AddAppOffline(deploymentResult.ContentRoot, expectedResponse);
+            Helpers.ModifyAspNetCoreSectionInWebConfig(deploymentResult, "processPath", "nonexistent");
 
-            await AssertAppOffline(deploymentResult, expectedResponse);
+            var result = await deploymentResult.HttpClient.GetAsync("/");
+            Assert.Equal(500, (int)result.StatusCode);
+            Assert.Contains("500.0", await result.Content.ReadAsStringAsync());
+
+            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+
+            await AssertAppOffline(deploymentResult);
+            AssertFilesNotLocked(deploymentResult);
+        }
+
+        [ConditionalFact]
+        public async Task AppOfflineDroppedWhileSiteFailedToStartInRequestHandler_SiteStops_InProcess()
+        {
+            var deploymentResult = await DeployApp(HostingModel.InProcess);
+
+            // Set file content to empty so it fails at runtime
+            File.WriteAllText(Path.Combine(deploymentResult.DeploymentResult.ContentRoot, "Microsoft.AspNetCore.Server.IIS.dll"), "");
+
+            var result = await deploymentResult.HttpClient.GetAsync("/");
+            Assert.Equal(500, (int)result.StatusCode);
+            Assert.Contains("500.30", await result.Content.ReadAsStringAsync());
+
+            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            AssertStopsProcess(deploymentResult);
+        }
+
+        
+        [ConditionalFact]
+        public async Task AppOfflineDroppedWhileSiteFailedToStart_SiteStops_OutOfProcess()
+        {
+            var deploymentResult = await DeployApp(HostingModel.OutOfProcess);
+
+            Helpers.ModifyAspNetCoreSectionInWebConfig(deploymentResult, "processPath", "nonexistent");
+
+            var result = await deploymentResult.HttpClient.GetAsync("/");
+            Assert.Equal(502, (int)result.StatusCode);
+
+            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            await AssertAppOffline(deploymentResult);
+            AssertFilesNotLocked(deploymentResult);
+        }
+
+        [ConditionalFact]
+        public async Task AppOfflineDroppedWhileSiteStarting_SiteShutsDown_InProcess()
+        {
+            var deploymentResult = await DeployApp(HostingModel.InProcess);
+
+            for (int i = 0; i < 10; i++)
+            {
+                
+                // send first request and add app_offline while app is starting
+                var runningTask = AssertAppOffline(deploymentResult);
+
+                // This test tries to hit a race where we drop app_offline file while
+                // in process application is starting, application start takes at least 400ms
+                // so we back off for 100ms to allow request to reach request handler
+                // Test itself is racy and can result in two scenarios
+                //    1. ANCM detects app_offline before it starts the request - if AssertAppOffline succeeds we've hit it
+                //    2. Intended scenario where app starts and then shuts down
+                // In first case we remove app_offline and try again
+                await Task.Delay(100);
+
+                AddAppOffline(deploymentResult.ContentRoot);
+
+                try
+                {
+                    await runningTask.TimeoutAfter(Helpers.DefaultTimeout);
+
+                    // if AssertAppOffline succeeded ANCM have picked up app_offline before starting the app
+                    // try again
+                    RemoveAppOffline(deploymentResult.ContentRoot);
+                }
+                catch
+                {
+                    AssertStopsProcess(deploymentResult);
+                    return;
+                }
+            }
+
+            Assert.True(false);
         }
 
         [ConditionalFact]
@@ -52,7 +131,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
             AddAppOffline(deploymentResult.ContentRoot);
 
-            await AssertStopsProcess(deploymentResult);
+            AssertStopsProcess(deploymentResult);
         }
 
         [ConditionalFact]
@@ -68,6 +147,10 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
                 RemoveAppOffline(deploymentResult.ContentRoot);
                 await AssertRunning(deploymentResult);
             }
+
+            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            await AssertAppOffline(deploymentResult);
+            AssertFilesNotLocked(deploymentResult);
         }
 
         [ConditionalTheory]
@@ -93,7 +176,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             return await DeployAsync(deploymentParameters);
         }
 
-        private void AddAppOffline(string appPath, string content = "")
+        private void AddAppOffline(string appPath, string content = "The app is offline.")
         {
             File.WriteAllText(Path.Combine(appPath, "app_offline.htm"), content);
         }
@@ -107,7 +190,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
                 retryDelayMilliseconds: 100);
         }
 
-        private async Task AssertAppOffline(IISDeploymentResult deploymentResult, string expectedResponse = "")
+        private async Task AssertAppOffline(IISDeploymentResult deploymentResult, string expectedResponse = "The app is offline.")
         {
             var response = await deploymentResult.HttpClient.GetAsync("HelloWorld");
 
@@ -122,17 +205,8 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             Assert.Equal(expectedResponse, await response.Content.ReadAsStringAsync());
         }
 
-        private async Task AssertStopsProcess(IISDeploymentResult deploymentResult)
+        private void AssertStopsProcess(IISDeploymentResult deploymentResult)
         {
-            try
-            {
-                var response = await deploymentResult.RetryingHttpClient.GetAsync("HelloWorld");
-            }
-            catch (HttpRequestException)
-            {
-                // dropping app_offline will kill the process
-            }
-
             var hostShutdownToken = deploymentResult.HostShutdownToken;
 
             Assert.True(hostShutdownToken.WaitHandle.WaitOne(TimeoutExtensions.DefaultTimeout));
@@ -155,5 +229,20 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             var responseText = await response.Content.ReadAsStringAsync();
             Assert.Equal("Hello World", responseText);
         }
+
+        private void AssertFilesNotLocked(IISDeploymentResult deploymentResult)
+        {
+            foreach (var file in Directory.GetFiles(deploymentResult.DeploymentResult.ContentRoot, "*", SearchOption.AllDirectories))
+            {
+                // Out of process module dll is allowed to be locked
+                var name = Path.GetFileName(file);
+                if (name == "aspnetcore.dll" || name == "aspnetcorev2.dll" || name == "aspnetcorev2_outofprocess.dll")
+                {
+                    continue;
+                }
+                File.Delete(file);
+            }
+        }
+
     }
 }
