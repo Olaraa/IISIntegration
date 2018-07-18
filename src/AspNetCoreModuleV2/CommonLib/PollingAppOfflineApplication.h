@@ -27,7 +27,7 @@ public:
     APPLICATION_STATUS QueryStatus() override;
     bool AppOfflineExists();
     virtual HRESULT OnAppOfflineFound() = 0;
-    void Stop() override {}
+    void Stop(bool fServerInitiated) override { UNREFERENCED_PARAMETER(fServerInitiated); }
 
 protected:
     std::experimental::filesystem::path m_appOfflineLocation;

@@ -419,7 +419,7 @@ APPLICATION_INFO::DoRecycleApplication(
     if (pApplication)
     {
         // Recycle will call shutdown for out of process
-        pApplication->Stop();
+        pApplication->Stop(false); // fServerInitiated
     }
 
     return 0;
@@ -433,7 +433,7 @@ APPLICATION_INFO::ShutDownApplication()
 
     if (m_pApplication)
     {
-        m_pApplication ->Stop();
+        m_pApplication ->Stop(true); // fServerInitiated
         m_pApplication = nullptr;
     }
 }

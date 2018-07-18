@@ -27,7 +27,7 @@ class IAPPLICATION
 public:
     virtual
     VOID
-    Stop() = 0;
+    Stop(bool fServerInitiated) = 0;
 
     virtual
     ~IAPPLICATION() = 0 { };

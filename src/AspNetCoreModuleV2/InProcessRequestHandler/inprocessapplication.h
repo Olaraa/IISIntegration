@@ -26,7 +26,7 @@ public:
 
     __override
     VOID
-    Stop() override;
+    Stop(bool fServerInitiated) override;
 
     VOID
     SetCallbackHandles(

@@ -63,10 +63,9 @@ IN_PROCESS_APPLICATION::DoShutDown(
 
 __override
 VOID
-IN_PROCESS_APPLICATION::Stop(
-    VOID
-)
+IN_PROCESS_APPLICATION::Stop(bool fServerInitiated)
 {
+    UNREFERENCED_PARAMETER(fServerInitiated);
     HRESULT hr = S_OK;
     CHandle  hThread;
     DWORD    dwThreadStatus = 0;
@@ -128,7 +127,7 @@ Finished:
             m_pConfig->QueryConfigPath()->QueryStr());
     }
 
-    InProcessApplicationBase::Stop();
+    InProcessApplicationBase::Stop(fServerInitiated);
 }
 
 VOID
@@ -510,7 +509,7 @@ Finished:
             //
             // If the inprocess server was initialized, we need to cause recycle to be called on the worker process.
             //
-            Stop();
+            Stop(false); // fServerInitiated
         }
     }
 

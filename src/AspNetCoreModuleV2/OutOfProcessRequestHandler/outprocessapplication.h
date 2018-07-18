@@ -32,7 +32,7 @@ public:
 
     __override
     VOID
-    Stop()
+    Stop(bool fServerInitiated)
     override;
 
     __override

@@ -58,5 +58,5 @@ void AppOfflineTrackingApplication::OnAppOffline()
                        ASPNETCORE_EVENT_RECYCLE_APPOFFLINE_MSG,
                        m_applicationPath.c_str());
 
-    Stop();
+    Stop(false); // fServerInitiated
 }

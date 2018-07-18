@@ -63,8 +63,10 @@ OUT_OF_PROCESS_APPLICATION::GetProcess(
 
 __override
 VOID
-OUT_OF_PROCESS_APPLICATION::Stop()
+OUT_OF_PROCESS_APPLICATION::Stop(bool fServerInitiated)
 {   
+    UNREFERENCED_PARAMETER(fServerInitiated);
+
     SRWExclusiveLock lock(m_srwLock);
     if (m_pProcessManager != NULL)
     {
