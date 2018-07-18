@@ -99,7 +99,7 @@ ASPNET_CORE_PROXY_MODULE::OnExecuteRequestHandler(
         DBG_ASSERT(pHttpContext);
 
         std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER> pApplication;
-        FINISHED_IF_FAILED(m_pApplicationInfo->ExtractApplication(pHttpContext, pApplication));
+        FINISHED_IF_FAILED(m_pApplicationInfo->GetOrCreateApplication(pHttpContext, pApplication));
 
         // We allow OFFLINE application to serve pages
         if (pApplication->QueryStatus() != APPLICATION_STATUS::RUNNING &&

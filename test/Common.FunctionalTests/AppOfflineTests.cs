@@ -21,7 +21,6 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 {
     public class AppOfflineTests : IISFunctionalTestBase
     {
-        // TODO these will differ between IIS and IISExpress
         [ConditionalTheory]
         [InlineData(HostingModel.InProcess)]
         [InlineData(HostingModel.OutOfProcess)]
@@ -53,6 +52,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
         }
 
         [ConditionalFact]
+        [RequiresIIS(IISCapability.ShutdownToken)]
         public async Task AppOfflineDroppedWhileSiteFailedToStartInRequestHandler_SiteStops_InProcess()
         {
             var deploymentResult = await DeployApp(HostingModel.InProcess);
@@ -70,6 +70,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
         
         [ConditionalFact]
+        [RequiresIIS(IISCapability.ShutdownToken)]
         public async Task AppOfflineDroppedWhileSiteFailedToStart_SiteStops_OutOfProcess()
         {
             var deploymentResult = await DeployApp(HostingModel.OutOfProcess);
@@ -85,6 +86,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
         }
 
         [ConditionalFact]
+        [RequiresIIS(IISCapability.ShutdownToken)]
         public async Task AppOfflineDroppedWhileSiteStarting_SiteShutsDown_InProcess()
         {
             var deploymentResult = await DeployApp(HostingModel.InProcess);
@@ -125,6 +127,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
         }
 
         [ConditionalFact]
+        [RequiresIIS(IISCapability.ShutdownToken)]
         public async Task AppOfflineDroppedWhileSiteRunning_SiteShutsDown_InProcess()
         {
             var deploymentResult = await AssertStarts(HostingModel.InProcess);
@@ -135,6 +138,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
         }
 
         [ConditionalFact]
+        [RequiresIIS(IISCapability.ShutdownToken)]
         public async Task AppOfflineDroppedWhileSiteRunning_SiteShutsDown_OutOfProcess()
         {
             var deploymentResult = await AssertStarts(HostingModel.OutOfProcess);

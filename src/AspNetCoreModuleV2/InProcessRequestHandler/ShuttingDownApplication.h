@@ -4,8 +4,6 @@
 #pragma once
 
 #include "InProcessApplicationBase.h"
-#include "StartupExceptionHandler.h"
-
 
 class ShuttingDownHandler : public REQUEST_HANDLER
 {

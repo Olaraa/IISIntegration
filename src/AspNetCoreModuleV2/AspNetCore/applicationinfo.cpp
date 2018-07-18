@@ -48,7 +48,7 @@ APPLICATION_INFO::Initialize(
 
 
 HRESULT
-APPLICATION_INFO::ExtractApplication(
+APPLICATION_INFO::GetOrCreateApplication(
     IHttpContext *pHttpContext,
     std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER>& pApplication
 )

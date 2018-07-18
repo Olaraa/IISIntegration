@@ -99,7 +99,7 @@ public:
     ShutDownApplication();
 
     HRESULT
-    ExtractApplication(
+    GetOrCreateApplication(
         IHttpContext *pHttpContext,
         std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER>& pApplication
     );
