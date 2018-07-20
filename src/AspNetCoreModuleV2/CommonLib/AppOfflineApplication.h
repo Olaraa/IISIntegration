@@ -7,23 +7,6 @@
 #include "requesthandler.h"
 #include "PollingAppOfflineApplication.h"
 
-class AppOfflineHandler: public REQUEST_HANDLER
-{
-public:
-    AppOfflineHandler(IHttpContext* pContext, const std::string appOfflineContent)
-        : m_pContext(pContext),
-          m_strAppOfflineContent(appOfflineContent)
-    {    
-    }
-
-    REQUEST_NOTIFICATION_STATUS OnExecuteRequestHandler() override;
-
-private:
-    IHttpContext* m_pContext;
-    std::string m_strAppOfflineContent;
-};
-
-
 class AppOfflineApplication: public PollingAppOfflineApplication
 {
 public:

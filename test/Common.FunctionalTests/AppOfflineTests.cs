@@ -1,17 +1,14 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.IIS.FunctionalTests.Utilities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
-using Microsoft.AspNetCore.Testing;
 using Microsoft.AspNetCore.Testing.xunit;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -39,15 +36,17 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
         [InlineData(HostingModel.OutOfProcess, 502, "502.5")]
         public async Task AppOfflineDroppedWhileSiteFailedToStartInShim_AppOfflineServed(HostingModel hostingModel, int statusCode, string content)
         {
-            var deploymentResult = await DeployApp(hostingModel);
 
-            Helpers.ModifyAspNetCoreSectionInWebConfig(deploymentResult, "processPath", "nonexistent");
+            var deploymentParameters = Helpers.GetBaseDeploymentParameters(hostingModel: hostingModel, publish: true);
+            deploymentParameters.ModifyAspNetCoreSectionInWebConfig("processPath", "nonexistent");
+
+            var deploymentResult = await DeployAsync(deploymentParameters);
 
             var result = await deploymentResult.HttpClient.GetAsync("/");
             Assert.Equal(statusCode, (int)result.StatusCode);
             Assert.Contains(content, await result.Content.ReadAsStringAsync());
 
-            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            AddAppOffline(deploymentResult.ContentRoot);
 
             await AssertAppOffline(deploymentResult);
             DeletePublishOutput(deploymentResult);
@@ -60,13 +59,13 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             var deploymentResult = await DeployApp(HostingModel.InProcess);
 
             // Set file content to empty so it fails at runtime
-            File.WriteAllText(Path.Combine(deploymentResult.DeploymentResult.ContentRoot, "Microsoft.AspNetCore.Server.IIS.dll"), "");
+            File.WriteAllText(Path.Combine(deploymentResult.ContentRoot, "Microsoft.AspNetCore.Server.IIS.dll"), "");
 
             var result = await deploymentResult.HttpClient.GetAsync("/");
             Assert.Equal(500, (int)result.StatusCode);
             Assert.Contains("500.30", await result.Content.ReadAsStringAsync());
 
-            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            AddAppOffline(deploymentResult.ContentRoot);
             AssertStopsProcess(deploymentResult);
         }
 
@@ -137,7 +136,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
                 await AssertRunning(deploymentResult);
             }
 
-            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            AddAppOffline(deploymentResult.ContentRoot);
             await AssertAppOffline(deploymentResult);
             DeletePublishOutput(deploymentResult);
         }
@@ -174,18 +173,18 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             {
                 // AddAppOffline might fail if app_offline is being read by ANCM and deleted at the same time
                 RetryHelper.RetryOperation(
-                    () => AddAppOffline(deploymentResult.DeploymentResult.ContentRoot),
+                    () => AddAppOffline(deploymentResult.ContentRoot),
                     e => Logger.LogError($"Failed to create app_offline : {e.Message}"),
                     retryCount: 3,
                     retryDelayMilliseconds: 100);
-                RemoveAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+                RemoveAppOffline(deploymentResult.ContentRoot);
             }
 
             try
             {
                 await load;
             }
-            catch (HttpRequestException ex) when (ex.InnerException is IOException)
+            catch (HttpRequestException ex) when (ex.InnerException is IOException | ex.InnerException is SocketException)
             {
                 // IOException in InProcess is fine, just means process stopped
                 if (hostingModel != HostingModel.InProcess)
@@ -263,7 +262,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
         private void DeletePublishOutput(IISDeploymentResult deploymentResult)
         {
-            foreach (var file in Directory.GetFiles(deploymentResult.DeploymentResult.ContentRoot, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.GetFiles(deploymentResult.ContentRoot, "*", SearchOption.AllDirectories))
             {
                 // Out of process module dll is allowed to be locked
                 var name = Path.GetFileName(file);

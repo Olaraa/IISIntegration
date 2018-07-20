@@ -231,6 +231,7 @@
     <ClInclude Include="applicationmanager.h" />
     <ClInclude Include="proxymodule.h" />
     <ClInclude Include="ServerErrorApplication.h" />
+    <ClInclude Include="ServerErrorHandler.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
