@@ -31,24 +31,26 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             AddAppOffline(deploymentResult.ContentRoot);
 
             await AssertAppOffline(deploymentResult);
-            AssertFilesNotLocked(deploymentResult);
+            DeletePublishOutput(deploymentResult);
         }
 
-        [ConditionalFact]
-        public async Task AppOfflineDroppedWhileSiteFailedToStartInShim_AppOfflineServed_InProcess()
+        [ConditionalTheory]
+        [InlineData(HostingModel.InProcess, 500, "500.0")]
+        [InlineData(HostingModel.OutOfProcess, 502, "502.5")]
+        public async Task AppOfflineDroppedWhileSiteFailedToStartInShim_AppOfflineServed(HostingModel hostingModel, int statusCode, string content)
         {
-            var deploymentResult = await DeployApp(HostingModel.InProcess);
+            var deploymentResult = await DeployApp(hostingModel);
 
             Helpers.ModifyAspNetCoreSectionInWebConfig(deploymentResult, "processPath", "nonexistent");
 
             var result = await deploymentResult.HttpClient.GetAsync("/");
-            Assert.Equal(500, (int)result.StatusCode);
-            Assert.Contains("500.0", await result.Content.ReadAsStringAsync());
+            Assert.Equal(statusCode, (int)result.StatusCode);
+            Assert.Contains(content, await result.Content.ReadAsStringAsync());
 
             AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
 
             await AssertAppOffline(deploymentResult);
-            AssertFilesNotLocked(deploymentResult);
+            DeletePublishOutput(deploymentResult);
         }
 
         [ConditionalFact]
@@ -66,23 +68,6 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
             AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
             AssertStopsProcess(deploymentResult);
-        }
-
-        
-        [ConditionalFact]
-        [RequiresIIS(IISCapability.ShutdownToken)]
-        public async Task AppOfflineDroppedWhileSiteFailedToStart_SiteStops_OutOfProcess()
-        {
-            var deploymentResult = await DeployApp(HostingModel.OutOfProcess);
-
-            Helpers.ModifyAspNetCoreSectionInWebConfig(deploymentResult, "processPath", "nonexistent");
-
-            var result = await deploymentResult.HttpClient.GetAsync("/");
-            Assert.Equal(502, (int)result.StatusCode);
-
-            AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
-            await AssertAppOffline(deploymentResult);
-            AssertFilesNotLocked(deploymentResult);
         }
 
         [ConditionalFact]
@@ -154,7 +139,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
             AddAppOffline(deploymentResult.DeploymentResult.ContentRoot);
             await AssertAppOffline(deploymentResult);
-            AssertFilesNotLocked(deploymentResult);
+            DeletePublishOutput(deploymentResult);
         }
 
         [ConditionalTheory]
@@ -172,6 +157,44 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
             await AssertRunning(deploymentResult);
         }
+
+        [ConditionalTheory]
+        [InlineData(HostingModel.InProcess)]
+        [InlineData(HostingModel.OutOfProcess)]
+        public async Task AppOfflineAddedAndRemovedStress(HostingModel hostingModel)
+        {
+            var deploymentResult = await AssertStarts(hostingModel);
+
+            var load = Helpers.StressLoad(deploymentResult.HttpClient, "/HelloWorld", response => {
+                var statusCode = (int)response.StatusCode;
+                Assert.True(statusCode == 200 || statusCode == 503, "Status code was " + statusCode);
+            });
+
+            for (int i = 0; i < 100; i++)
+            {
+                // AddAppOffline might fail if app_offline is being read by ANCM and deleted at the same time
+                RetryHelper.RetryOperation(
+                    () => AddAppOffline(deploymentResult.DeploymentResult.ContentRoot),
+                    e => Logger.LogError($"Failed to create app_offline : {e.Message}"),
+                    retryCount: 3,
+                    retryDelayMilliseconds: 100);
+                RemoveAppOffline(deploymentResult.DeploymentResult.ContentRoot);
+            }
+
+            try
+            {
+                await load;
+            }
+            catch (HttpRequestException ex) when (ex.InnerException is IOException)
+            {
+                // IOException in InProcess is fine, just means process stopped
+                if (hostingModel != HostingModel.InProcess)
+                {
+                    throw;
+                }
+            }
+        }
+
 
         private async Task<IISDeploymentResult> DeployApp(HostingModel hostingModel = HostingModel.InProcess)
         {
@@ -196,12 +219,16 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
 
         private async Task AssertAppOffline(IISDeploymentResult deploymentResult, string expectedResponse = "The app is offline.")
         {
-            var response = await deploymentResult.HttpClient.GetAsync("HelloWorld");
+            HttpResponseMessage response = null;
 
-            for (var i = 0; response.IsSuccessStatusCode && i < 5; i++)
+            for (var i = 0; i < 5; i++)
             {
                 // Keep retrying until app_offline is present.
                 response = await deploymentResult.HttpClient.GetAsync("HelloWorld");
+                if (!response.IsSuccessStatusCode)
+                {
+                    break;
+                }
             }
 
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
@@ -234,7 +261,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
             Assert.Equal("Hello World", responseText);
         }
 
-        private void AssertFilesNotLocked(IISDeploymentResult deploymentResult)
+        private void DeletePublishOutput(IISDeploymentResult deploymentResult)
         {
             foreach (var file in Directory.GetFiles(deploymentResult.DeploymentResult.ContentRoot, "*", SearchOption.AllDirectories))
             {

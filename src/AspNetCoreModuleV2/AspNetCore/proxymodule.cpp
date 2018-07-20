@@ -101,12 +101,12 @@ ASPNET_CORE_PROXY_MODULE::OnExecuteRequestHandler(
         std::unique_ptr<IAPPLICATION, IAPPLICATION_DELETER> pApplication;
         FINISHED_IF_FAILED(m_pApplicationInfo->GetOrCreateApplication(pHttpContext, pApplication));
 
-        // We allow OFFLINE application to serve pages
+        // We allow RECYCLED application to serve pages
         if (pApplication->QueryStatus() != APPLICATION_STATUS::RUNNING &&
-            pApplication->QueryStatus() != APPLICATION_STATUS::STARTING)
+            pApplication->QueryStatus() != APPLICATION_STATUS::STARTING &&
+            pApplication->QueryStatus() != APPLICATION_STATUS::RECYCLED)
         {
-            hr = HRESULT_FROM_WIN32(ERROR_SERVER_DISABLED);
-            goto Finished;
+            FINISHED(HRESULT_FROM_WIN32(ERROR_SERVER_DISABLED));
         }
 
         IREQUEST_HANDLER* pHandler;
@@ -122,7 +122,7 @@ ASPNET_CORE_PROXY_MODULE::OnExecuteRequestHandler(
     }
 
 Finished:
-    if (FAILED(hr))
+    if (LOG_IF_FAILED(hr))
     {
         retVal = RQ_NOTIFICATION_FINISH_REQUEST;
         if (hr == HRESULT_FROM_WIN32(ERROR_SERVER_SHUTDOWN_IN_PROGRESS))

@@ -96,7 +96,8 @@ CreateApplication(
     {
         RETURN_IF_FAILED(InitializeGlobalConfiguration(pServer, pHttpApplication));
 
-        // In process application was already created
+        // In process application was already created so another call to CreateApplication
+        // means that server is shutting does and request arrived in the meantime
         if (g_fInProcessApplicationCreated)
         {
             *ppApplication = new ShuttingDownApplication(*pServer, *pHttpApplication);

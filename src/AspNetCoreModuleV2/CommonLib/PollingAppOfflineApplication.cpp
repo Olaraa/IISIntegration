@@ -9,14 +9,7 @@
 
 APPLICATION_STATUS PollingAppOfflineApplication::QueryStatus()
 {
-    if (AppOfflineExists())
-    {
-        return m_mode == StopWhenRemoved ? APPLICATION_STATUS::RUNNING : APPLICATION_STATUS::RECYCLED;
-    }
-    else
-    {
-        return m_mode == StopWhenRemoved ? APPLICATION_STATUS::RECYCLED : APPLICATION_STATUS::RUNNING;
-    }
+    return (AppOfflineExists() == (m_mode == StopWhenRemoved)) ? APPLICATION_STATUS::RUNNING : APPLICATION_STATUS::RECYCLED;
 }
 
 bool
@@ -26,7 +19,7 @@ PollingAppOfflineApplication::AppOfflineExists()
     //
     // we only care about app offline presented. If not, it means the application has started
     // and is monitoring  the app offline file
-    // we cache the file exist check result for 1 second
+    // we cache the file exist check result for 200 ms
     //
     if (ulCurrentTime - m_ulLastCheckTime > c_appOfflineRefreshIntervalMS)
     {

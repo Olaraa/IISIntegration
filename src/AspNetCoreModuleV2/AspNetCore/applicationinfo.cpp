@@ -77,7 +77,7 @@ APPLICATION_INFO::GetOrCreateApplication(
 
     if (AppOfflineApplication::ShouldBeStarted(httpApplication))
     {
-        LOG_INFO("Detected app_ofline file, creating polling application");
+        LOG_INFO("Detected app_offline file, creating polling application");
         m_pApplication.reset(new AppOfflineApplication(httpApplication));
     }
     else
@@ -105,7 +105,6 @@ APPLICATION_INFO::GetOrCreateApplication(
 
         m_pApplication.reset(newApplication);
     }
-
 
 Finished:
 
@@ -419,7 +418,7 @@ APPLICATION_INFO::DoRecycleApplication(
     if (pApplication)
     {
         // Recycle will call shutdown for out of process
-        pApplication->Stop(false); // fServerInitiated
+        pApplication->Stop(/*fServerInitiated*/ false);
     }
 
     return 0;
@@ -433,7 +432,7 @@ APPLICATION_INFO::ShutDownApplication()
 
     if (m_pApplication)
     {
-        m_pApplication ->Stop(true); // fServerInitiated
+        m_pApplication ->Stop(/* fServerInitiated */ true);
         m_pApplication = nullptr;
     }
 }

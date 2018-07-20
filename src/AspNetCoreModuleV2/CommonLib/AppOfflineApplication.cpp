@@ -31,13 +31,13 @@ HRESULT AppOfflineApplication::OnAppOfflineFound()
 
     RETURN_LAST_ERROR_IF(handle == INVALID_HANDLE_VALUE);
 
-    RETURN_LAST_ERROR_IF (!GetFileSizeEx(handle, &li));
+    RETURN_LAST_ERROR_IF(!GetFileSizeEx(handle, &li));
 
     if (li.HighPart != 0)
     {
         // > 4gb file size not supported
         // todo: log a warning at event log
-        return TRUE;
+        return E_INVALIDARG;
     }
 
     if (li.LowPart > 0)

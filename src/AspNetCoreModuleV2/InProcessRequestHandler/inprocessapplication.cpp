@@ -163,7 +163,7 @@ IN_PROCESS_APPLICATION::ShutDownInternal()
         // managed. We still need to wait on main exiting no matter what. m_fShutdownCalledFromNative
         // is used for detecting redundant calls and blocking more requests to OnExecuteRequestHandler.
         m_fShutdownCalledFromNative = TRUE;
-        m_status = APPLICATION_STATUS::SHUTDOWN;
+        m_status = APPLICATION_STATUS::RECYCLED;
 
         if (!m_fShutdownCalledFromManaged)
         {
@@ -509,7 +509,7 @@ Finished:
             //
             // If the inprocess server was initialized, we need to cause recycle to be called on the worker process.
             //
-            Stop(false); // fServerInitiated
+            Stop(/*fServerInitiated*/ false);
         }
     }
 
