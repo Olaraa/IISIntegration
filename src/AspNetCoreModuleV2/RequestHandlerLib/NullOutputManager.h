@@ -15,7 +15,11 @@ public:
 
     HRESULT Start()
     {
-        // The process has console, e.g., IIS Express scenario
+        return S_OK;
+    }
+
+    HRESULT Stop()
+    {
         return S_OK;
     }
 

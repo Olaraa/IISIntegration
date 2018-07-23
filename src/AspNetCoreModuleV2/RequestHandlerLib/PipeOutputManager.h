@@ -14,7 +14,7 @@ public:
     ~PipeOutputManager();
 
     virtual HRESULT Start() override;
-
+    virtual HRESULT Stop() override;
     virtual bool GetStdOutContent(STRA* struStdOutput) override;
 
     // Thread functions
@@ -30,9 +30,9 @@ private:
     HANDLE                          m_hErrThread;
     CHAR                            m_pzFileContents[MAX_PIPE_READ_SIZE] = { 0 };
     DWORD                           m_dwStdErrReadTotal;
-    BOOL                            m_fDisposed;
     SRWLOCK                         m_srwLock;
     int                             m_fdPreviousStdOut;
     int                             m_fdPreviousStdErr;
+    BOOL                            m_disposed;
 };
 

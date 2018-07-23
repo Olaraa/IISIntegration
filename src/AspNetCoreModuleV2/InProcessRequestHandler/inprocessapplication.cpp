@@ -7,10 +7,10 @@
 #include "requesthandler_config.h"
 #include "environmentvariablehelpers.h"
 #include "utility.h"
-#include "EventLog.h"
 #include "SRWExclusiveLock.h"
 #include "exceptions.h"
 #include "LoggingHelpers.h"
+#include "resources.h"
 
 const LPCSTR IN_PROCESS_APPLICATION::s_exeLocationParameterName = "InProcessExeLocation";
 
@@ -503,6 +503,7 @@ Finished:
     m_status = APPLICATION_STATUS::SHUTDOWN;
     m_fShutdownCalledFromManaged = TRUE;
     FreeLibrary(hModule);
+    m_pLoggerProvider->Stop();
 
     if (!m_fShutdownCalledFromNative)
     {
@@ -536,7 +537,7 @@ IN_PROCESS_APPLICATION::LogErrorsOnMainExit(
         if (SUCCEEDED(struStdMsg.CopyA(straStdErrOutput.QueryStr()))) {
             UTILITY::LogEventF(g_hEventLog,
                 EVENTLOG_ERROR_TYPE,
-                ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT,
+                ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_STDOUT,
                 ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_STDOUT_MSG,
                 m_pConfig->QueryApplicationPath()->QueryStr(),
                 m_pConfig->QueryApplicationPhysicalPath()->QueryStr(),

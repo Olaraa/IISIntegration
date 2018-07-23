@@ -31,7 +31,7 @@ LoggingHelpers::CreateLoggingProvider(
         }
         else if (fEnablePipe)
         {
-            *outputManager = new NullOutputManager;
+            *outputManager = new PipeOutputManager;
         }
         else
         {

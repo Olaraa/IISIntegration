@@ -19,6 +19,7 @@ public:
 
     virtual bool GetStdOutContent(STRA* struStdOutput) override;
     virtual HRESULT Start() override;
+    virtual HRESULT Stop() override;
 
 private:
     HandleWrapper<InvalidHandleTraits> m_hLogFileHandle;
@@ -28,5 +29,7 @@ private:
     STRU m_struLogFilePath;
     int m_fdPreviousStdOut;
     int m_fdPreviousStdErr;
+    BOOL m_disposed;
+    SRWLOCK m_srwLock;
 };
 
