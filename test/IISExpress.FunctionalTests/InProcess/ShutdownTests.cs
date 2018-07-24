@@ -17,7 +17,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         {
         }
 
-        [RequiresIIS(IISCapability.ShutdownToken)]
         [ConditionalFact]
         public async Task ServerShutsDownWhenMainExits()
         {

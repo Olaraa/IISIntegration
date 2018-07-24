@@ -38,7 +38,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests.Inprocess
         {
 
             var deploymentParameters = Helpers.GetBaseDeploymentParameters(hostingModel: hostingModel, publish: true);
-            deploymentParameters.ModifyAspNetCoreSectionInWebConfig("processPath", "nonexistent");
+            deploymentParameters.WebConfigActionList.Add(WebConfigHelpers.AddOrModifyAspNetCoreSection("processPath", "nonexistent"));
 
             var deploymentResult = await DeployAsync(deploymentParameters);
 
